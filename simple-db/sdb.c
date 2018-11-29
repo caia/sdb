@@ -8,11 +8,44 @@
 #include <unistd.h>
 
 
-typedef struct {
+typedef enum
+{
+    META_COMMAND_SUCCESS,
+    META_COMMAND_UNRECOGNIZED
+}
+MetaCommandResult;
+
+
+typedef enum
+{
+    PREPARE_SUCCESS,
+    PREPARE_UNRECOGNIZED
+}
+PrepareResult;
+
+
+typedef enum
+{
+    STATEMENT_INSERT,
+    STATEMENT_SELECT
+}
+StatementType;
+
+
+typedef struct
+{
     char* buffer;
     size_t buffer_length;
     ssize_t input_length;
-} InputBuffer;
+}
+InputBuffer;
+
+
+typedef struct
+{
+    StatementType type;
+}
+Statement;
 
 
 InputBuffer* new_input_buffer()
@@ -24,6 +57,52 @@ InputBuffer* new_input_buffer()
     ib->input_length = 0;
 
     return ib;
+}
+
+
+MetaCommandResult do_meta_command(InputBuffer* ib)
+{
+    if(strcmp(ib->buffer, ".exit") == 0)
+    {
+        exit(EXIT_SUCCESS);
+    }
+    else
+    {
+        return META_COMMAND_UNRECOGNIZED;
+    }
+}
+
+
+PrepareResult prepare_statement(InputBuffer* ib, Statement* st)
+{
+    if(strncmp(ib->buffer, "insert", 6) == 0)
+    {
+        st->type = STATEMENT_INSERT;
+        return PREPARE_SUCCESS;
+    }
+
+    if(strcmp(ib->buffer, "select") == 0)
+    {
+        st->type = STATEMENT_SELECT;
+        return PREPARE_SUCCESS;
+    }
+
+    return PREPARE_UNRECOGNIZED;
+}
+
+
+void execute_statement(Statement* st)
+{
+    switch(st->type)
+    {
+        case(STATEMENT_INSERT):
+            printf("Insert.\n");
+            break;
+
+        case(STATEMENT_SELECT):
+            printf("Select.\n");
+            break;
+    }
 }
 
 
@@ -58,13 +137,31 @@ int main()
         prompt();
         read_input(ib);
 
-        if(strcmp(ib->buffer, ".exit") == 0)
+        if(ib->buffer[0] == '.')
         {
-            exit(EXIT_SUCCESS);
+            switch(do_meta_command(ib))
+            {
+                case(META_COMMAND_SUCCESS):
+                    continue;
+
+                case(META_COMMAND_UNRECOGNIZED):
+                    printf("Unrecognized keyword at start of '%s'.\n", ib->buffer);
+                    continue;
+            }
         }
-        else
+
+        Statement st;
+        switch(prepare_statement(ib, &st))
         {
-            printf("Unrecognized command '%s'.\n", ib->buffer);
+            case(PREPARE_SUCCESS):
+                break;
+
+            case(PREPARE_UNRECOGNIZED):
+                printf("Unrecognized keyword at start of '%s'.\n", ib->buffer);
+                continue;
         }
+
+        execute_statement(&st);
+        printf("Executed.\n");
     }
 }
